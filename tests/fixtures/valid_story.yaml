@@ -1,0 +1,51 @@
+title: "Test Histoire"
+version: 1
+duration_min: 5
+
+characters:
+  - id: renard
+    name: "Renard"
+  - id: chouette
+    name: "Chouette"
+
+nodes:
+  - id: intro
+    text: "Bienvenue dans cette aventure. Qui veux-tu incarner ?"
+    choices:
+      - label: "Le Renard"
+        next: renard_depart
+      - label: "La Chouette"
+        next: chouette_depart
+
+  - id: renard_depart
+    character: renard
+    text: "Tu es Renard, malin et curieux. La forêt s'étend devant toi."
+    choices:
+      - label: "Aller à droite"
+        next: renard_fin_a
+      - label: "Aller à gauche"
+        next: renard_fin_b
+
+  - id: renard_fin_a
+    character: renard
+    text: "Tu trouves un abri douillet. Bravo !"
+    choices: []
+
+  - id: renard_fin_b
+    character: renard
+    text: "Tu découvres un trésor caché !"
+    choices: []
+
+  - id: chouette_depart
+    character: chouette
+    text: "Tu es Chouette, sage et observatrice. La nuit tombe."
+    choices:
+      - label: "Voler vers le nord"
+        next: chouette_fin
+      - label: "Rester sur place"
+        next: chouette_fin
+
+  - id: chouette_fin
+    character: chouette
+    text: "Tu guides tous les animaux à bon port. Quelle sagesse !"
+    choices: []
