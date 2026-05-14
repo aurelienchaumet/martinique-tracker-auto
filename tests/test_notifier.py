@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import patch, MagicMock
 from core.alert_engine import Alert
 from core.notifier import build_email_html, build_subject, generate_pdf_bytes
 

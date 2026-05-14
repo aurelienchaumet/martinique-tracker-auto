@@ -94,6 +94,9 @@ def generate_pdf_bytes(records: List[PriceRecord]) -> bytes:
 
 
 def send_alert_email(alerts: List[Alert], records: List[PriceRecord]) -> None:
+    if not alerts:
+        return
+
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         print("[notifier] No GMAIL credentials — skipping email.")
         return
