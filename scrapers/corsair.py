@@ -42,8 +42,3 @@ class CorsairScraper(AirlineScraper):
 
         text = await element.inner_text()
         return self._parse_price(text)
-
-    @staticmethod
-    def _fmt_date(iso: str) -> str:
-        y, m, d = iso.split("-")
-        return f"{d}/{m}/{y}"

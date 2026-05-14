@@ -35,3 +35,8 @@ class AirlineScraper(ABC):
 
     async def _random_delay(self):
         await asyncio.sleep(random.uniform(2.0, 5.0))
+
+    @staticmethod
+    def _fmt_date(iso: str) -> str:
+        y, m, d = iso.split("-")
+        return f"{d}/{m}/{y}"
