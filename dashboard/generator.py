@@ -1,3 +1,4 @@
+import html
 import json
 from datetime import datetime
 from pathlib import Path
@@ -56,10 +57,10 @@ def generate_dashboard(records: List[PriceRecord]) -> str:
         for airline, price in current_by_airline.items():
             diff = price - min_price
             indicator = "🟢" if diff < 20 else ("🔴" if price >= max_price - 20 else "🟡")
-            table_rows += f"<tr><td>{airline}</td><td><b>{price:.0f}€</b></td><td>{indicator}</td></tr>"
+            table_rows += f"<tr><td>{html.escape(airline)}</td><td><b>{price:.0f}€</b></td><td>{indicator}</td></tr>"
 
         all_labels = sorted({r.timestamp[:16] for r in all_pts})
-        chart_datasets = json.dumps(datasets)
+        chart_datasets = json.dumps(datasets).replace("</", "<\\/")
 
         charts_js += f"""
         (function() {{

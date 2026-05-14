@@ -22,11 +22,11 @@ class AirlineScraper(ABC):
         pass
 
     def _parse_price(self, text: str) -> Optional[float]:
-        # Remove everything except digits, comma, period, space
         cleaned = re.sub(r"[^\d\s,.]", "", text.strip())
-        # Remove spaces (thousand separators), replace comma with period
+        # Detect dot-as-thousands-separator (e.g. "1.234,50" → remove the dot)
+        if re.search(r"\d\.\d{3},", cleaned):
+            cleaned = cleaned.replace(".", "")
         cleaned = cleaned.replace(" ", "").replace(",", ".")
-        # Remove trailing/leading periods
         cleaned = cleaned.strip(".")
         try:
             return float(cleaned) if cleaned else None

@@ -1,3 +1,4 @@
+import html
 import io
 import smtplib
 from datetime import datetime
@@ -29,7 +30,7 @@ def build_email_html(alerts: List[Alert]) -> str:
         color = "#2e7d32" if a.is_drop else "#c62828"
         rows += f"""
         <tr>
-          <td>{a.airline}</td>
+          <td>{html.escape(a.airline)}</td>
           <td>{a.outbound}</td>
           <td>{a.return_date}</td>
           <td>{a.old_price:.0f}€</td>
@@ -97,7 +98,7 @@ def send_alert_email(alerts: List[Alert], records: List[PriceRecord]) -> None:
     if not alerts:
         return
 
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD or not RECIPIENT_EMAIL:
         print("[notifier] No GMAIL credentials — skipping email.")
         return
 
