@@ -1,5 +1,6 @@
 import asyncio
 import random
+import re
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -21,7 +22,6 @@ class AirlineScraper(ABC):
         pass
 
     def _parse_price(self, text: str) -> Optional[float]:
-        import re
         # Remove everything except digits, comma, period, space
         cleaned = re.sub(r"[^\d\s,.]", "", text.strip())
         # Remove spaces (thousand separators), replace comma with period

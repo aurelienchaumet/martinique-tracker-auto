@@ -1,6 +1,14 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, patch
 from scrapers.air_caraibes import AirCaraibesScraper
+
+
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch):
+    async def instant_sleep(_):
+        pass
+    monkeypatch.setattr(asyncio, "sleep", instant_sleep)
 
 
 @pytest.mark.asyncio
