@@ -64,3 +64,18 @@ def test_get_last_price_ignores_other_airlines(tmp_prices_path):
     append_price("Corsair", "2026-12-28", "2027-01-15", 350.0)
     records = load_prices()
     assert get_last_price(records, "Air France", "2026-12-28", "2027-01-15") is None
+
+
+def test_load_corrupted_json(tmp_prices_path):
+    tmp_prices_path.write_text("not valid json", encoding="utf-8")
+    result = load_prices()
+    assert result == []
+
+
+def test_get_last_price_ignores_different_dates(tmp_prices_path):
+    append_price("Air France", "2026-12-28", "2027-01-15", 500.0)
+    append_price("Air France", "2026-12-29", "2027-01-16", 450.0)
+    records = load_prices()
+    # Should only return the price for the matching date combo
+    assert get_last_price(records, "Air France", "2026-12-28", "2027-01-15") == 500.0
+    assert get_last_price(records, "Air France", "2026-12-29", "2027-01-16") == 450.0

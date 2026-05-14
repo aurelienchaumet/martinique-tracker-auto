@@ -20,8 +20,12 @@ class PriceRecord:
 def load_prices() -> List[PriceRecord]:
     if not DATA_PATH.exists():
         return []
-    with open(DATA_PATH, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(DATA_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"[price_store] WARNING: prices.json is corrupted ({e}), returning empty list")
+        return []
     return [PriceRecord(**r) for r in data]
 
 
@@ -48,6 +52,11 @@ def append_price(airline: str, outbound: str, return_date: str, price: float) ->
 def get_last_price(
     records: List[PriceRecord], airline: str, outbound: str, return_date: str
 ) -> Optional[float]:
+    """Return the most recent price for the given combination.
+
+    Records are sorted by timestamp so the result is correct even if the
+    caller passes records out of insertion order.
+    """
     matches = [
         r
         for r in records
@@ -55,4 +64,6 @@ def get_last_price(
         and r.outbound == outbound
         and r.return_date == return_date
     ]
-    return matches[-1].price if matches else None
+    if not matches:
+        return None
+    return sorted(matches, key=lambda r: r.timestamp)[-1].price
