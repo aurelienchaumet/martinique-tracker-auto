@@ -25,31 +25,32 @@ async def run():
                 user_agent=(
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
+                    "Chrome/136.0.0.0 Safari/537.36"
                 )
             )
             page = await context.new_page()
 
-            for route in ROUTES:
-                outbound = route["outbound"]
-                ret = route["return"]
+            try:
+                for route in ROUTES:
+                    outbound = route["outbound"]
+                    ret = route["return"]
 
-                price: Optional[float] = await scraper.get_price(page, outbound, ret)
-                if price is None:
-                    print(f"[main] No price for {scraper.name} {outbound}→{ret}")
-                    continue
+                    price: Optional[float] = await scraper.get_price(page, outbound, ret)
+                    if price is None:
+                        print(f"[main] No price for {scraper.name} {outbound}→{ret}")
+                        continue
 
-                print(f"[main] {scraper.name} {outbound}→{ret}: {price:.0f}€")
+                    print(f"[main] {scraper.name} {outbound}→{ret}: {price:.0f}€")
 
-                records = load_prices()
-                alert = detect_alert(records, scraper.name, outbound, ret, price)
-                if alert:
-                    print(f"[main] ALERT: {alert.airline} {alert.label}")
-                    all_alerts.append(alert)
+                    records = load_prices()
+                    alert = detect_alert(records, scraper.name, outbound, ret, price)
+                    if alert:
+                        print(f"[main] ALERT: {alert.airline} {alert.label}")
+                        all_alerts.append(alert)
 
-                append_price(scraper.name, outbound, ret, price)
-
-            await context.close()
+                    append_price(scraper.name, outbound, ret, price)
+            finally:
+                await context.close()
 
         await browser.close()
 
