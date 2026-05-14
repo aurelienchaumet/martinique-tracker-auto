@@ -1,4 +1,12 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .env
 .playwright/
+venv/
+.venv/
+env/
+.pytest_cache/
+playwright-report/
+*.pdf
