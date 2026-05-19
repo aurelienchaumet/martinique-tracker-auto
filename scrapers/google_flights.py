@@ -5,13 +5,13 @@ from typing import Optional
 
 from playwright.async_api import async_playwright, Page
 
-_RESULTS_SELECTOR = "li.pIav2d, li[data-gs], ul[aria-label] li"
-_EXTRACT_JS = """
+_RESULTS_SELECTOR = "li.pIav2d, li[data-gs]"
+_EXTRACT_JS = r"""
 () => {
     const results = [];
     const cards = document.querySelectorAll('li.pIav2d, li[data-gs]');
     cards.forEach(card => {
-        const airlineEl = card.querySelector('.sSHqwe, .h1fkLb, .Ir0Voe, [data-gs] .sSHqwe');
+        const airlineEl = card.querySelector('.sSHqwe, .h1fkLb, .Ir0Voe');
         const priceEl   = card.querySelector('.YMlIz, .FpEdX, .nA3Fge, .U3gSDe');
         if (airlineEl && priceEl) {
             results.push({
@@ -20,14 +20,14 @@ _EXTRACT_JS = """
             });
         }
     });
-    // Fallback: chercher n'importe quel li avec un prix
+    // Fallback : chercher tout li contenant un prix et une compagnie connue
     if (results.length === 0) {
         document.querySelectorAll('li').forEach(card => {
             const text = card.innerText;
             if (!text.includes('€')) return;
-            const priceMatch = text.match(/(\d[\d\s]+)\s*€/);
-            const airlines = ['Air France', 'Air Caraïbes', 'Corsair', 'Air caraïbes'];
-            const foundAirline = airlines.find(a => text.toLowerCase().includes(a.toLowerCase()));
+            const priceMatch = text.match(/(\d[\d  ]+)\s*€/);
+            const known = ['Air France', 'Air Caraïbes', 'Air caraïbes', 'Corsair'];
+            const foundAirline = known.find(a => text.toLowerCase().includes(a.toLowerCase()));
             if (priceMatch && foundAirline) {
                 results.push({ airline: foundAirline, price: priceMatch[1].trim() + ' €' });
             }
@@ -62,7 +62,7 @@ class GoogleFlightsScraper:
         try:
             await _fill_form(page, outbound, return_date)
         except Exception as e:
-            print(f"[GoogleFlights] Erreur remplissage formulaire {outbound}→{return_date}: {e}")
+            print(f"[GoogleFlights] Erreur formulaire {outbound}→{return_date}: {e}")
             await page.screenshot(path=f"debug_form_{outbound}.png")
             return {}
 
@@ -94,64 +94,59 @@ class GoogleFlightsScraper:
 
 
 async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
-    # --- Origine ---
-    origin_selector = 'input[aria-label*="où partez"], input[aria-label*="Départ"], input[placeholder*="où partez"]'
-    await page.locator(origin_selector).first.click()
-    await page.keyboard.press("Control+a")
+    # --- Origine : effacer "La Rochelle" et taper "Paris-Orly" ---
+    origin = page.locator('input[aria-label="De"]').first
+    await origin.click()
+    await origin.triple_click()
     await page.keyboard.type("Paris-Orly", delay=80)
+    # Attendre l'autocomplete et sélectionner ORY
     await page.wait_for_selector('[role="option"]', timeout=8000)
-    # Sélectionner ORY spécifiquement si présent, sinon le premier
     options = page.locator('[role="option"]')
-    ory_option = options.filter(has_text="ORY")
-    if await ory_option.count() > 0:
-        await ory_option.first.click()
+    ory = options.filter(has_text="ORY")
+    if await ory.count() > 0:
+        await ory.first.click()
     else:
         await options.first.click()
     await page.wait_for_timeout(500)
 
     # --- Destination ---
-    dest_selector = 'input[aria-label*="où allez"], input[aria-label*="Destination"], input[placeholder*="où allez"]'
-    await page.locator(dest_selector).first.click()
+    dest = page.locator('input[aria-label="À "]').first
+    await dest.click()
+    await dest.triple_click()
     await page.keyboard.type("Fort-de-France", delay=80)
     await page.wait_for_selector('[role="option"]', timeout=8000)
     options = page.locator('[role="option"]')
-    fdf_option = options.filter(has_text="FDF")
-    if await fdf_option.count() > 0:
-        await fdf_option.first.click()
+    fdf = options.filter(has_text="FDF")
+    if await fdf.count() > 0:
+        await fdf.first.click()
     else:
         await options.first.click()
     await page.wait_for_timeout(500)
 
     # --- Date aller ---
-    outbound_fr = _format_date_fr(outbound)
-    depart_selector = 'input[aria-label*="épart"], input[placeholder*="épart"]'
-    await page.locator(depart_selector).first.click()
-    await page.wait_for_timeout(500)
-    await page.keyboard.press("Control+a")
+    outbound_fr = _fmt(outbound)
+    depart = page.locator('input[aria-label="Départ"]').first
+    await depart.click()
+    await depart.triple_click()
     await page.keyboard.type(outbound_fr, delay=80)
-    await page.wait_for_timeout(300)
+    await page.wait_for_timeout(400)
 
     # --- Date retour ---
-    return_fr = _format_date_fr(return_date)
-    retour_selector = 'input[aria-label*="etour"], input[placeholder*="etour"]'
-    retour_input = page.locator(retour_selector).first
-    if await retour_input.count() > 0:
-        await retour_input.click()
-        await page.wait_for_timeout(500)
-        await page.keyboard.press("Control+a")
-        await page.keyboard.type(return_fr, delay=80)
-        await page.wait_for_timeout(300)
+    return_fr = _fmt(return_date)
+    retour = page.locator('input[aria-label="Retour"]').first
+    await retour.click()
+    await retour.triple_click()
+    await page.keyboard.type(return_fr, delay=80)
+    await page.wait_for_timeout(400)
 
-    # --- Fermer le calendrier si ouvert (Echap) puis Rechercher ---
+    # --- Fermer le calendrier puis lancer la recherche ---
     await page.keyboard.press("Escape")
     await page.wait_for_timeout(500)
-
-    search_button = page.locator('button:has-text("Explorer"), button[aria-label*="Rechercher"], button:has-text("Rechercher")')
-    await search_button.first.click()
+    await page.locator('button[aria-label="Rechercher des destinations"]').click()
 
 
-def _format_date_fr(date_iso: str) -> str:
-    """Convertit 2026-12-28 → 28/12/2026."""
+def _fmt(date_iso: str) -> str:
+    """2026-12-28 → 28/12/2026"""
     dt = datetime.strptime(date_iso, "%Y-%m-%d")
     return dt.strftime("%d/%m/%Y")
 
