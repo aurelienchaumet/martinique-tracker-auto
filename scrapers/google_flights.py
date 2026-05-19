@@ -126,12 +126,17 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await fdf.first.click()
     await page.wait_for_timeout(1000)
 
-    # --- Calendrier : après FDF, le dialog de dates s'ouvre automatiquement ---
-    await page.wait_for_selector('[role="dialog"]', timeout=8000)
+    # --- Calendrier : s'ouvre automatiquement après FDF, sinon cliquer Départ ---
+    # Le vrai dialog de dates a aria-modal="true" (pas les nav panels masqués)
+    dialog_selector = '[role="dialog"][aria-modal="true"]'
+    if not await page.locator(dialog_selector).first.is_visible():
+        await page.locator('input[aria-label="Départ"]').first.click()
+        await page.wait_for_timeout(500)
+    await page.wait_for_selector(dialog_selector, timeout=8000)
 
     # Saisir la date aller dans l'input du dialog
     outbound_fr = _fmt(outbound)
-    dialog_depart = page.locator('[role="dialog"] input[aria-label="Départ"]')
+    dialog_depart = page.locator(f'{dialog_selector} input[aria-label="Départ"]')
     await dialog_depart.click()
     await page.wait_for_timeout(300)
     await page.keyboard.press("Control+a")
@@ -149,7 +154,9 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.wait_for_timeout(600)
 
     # Cliquer OK pour confirmer et lancer la recherche
-    ok_btn = page.locator('button[jsname="McfNlf"]').first
+    ok_btn = page.locator(f'{dialog_selector} button[jsname="McfNlf"]').first
+    if not await ok_btn.count():
+        ok_btn = page.locator('button[jsname="McfNlf"]').first
     await ok_btn.click()
     await page.wait_for_timeout(2000)
 
