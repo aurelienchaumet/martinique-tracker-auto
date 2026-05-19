@@ -23,7 +23,7 @@ class GoogleFlightsScraper:
                 ],
                 trip="round-trip",
                 seat="economy",
-                passengers=Passengers(adults=2, children=0,
+                passengers=Passengers(adults=1, children=0,
                                       infants_in_seat=0, infants_on_lap=0),
                 fetch_mode="fallback",
             )
