@@ -5,34 +5,28 @@ from typing import Optional
 
 from playwright.async_api import async_playwright, Page
 
-_RESULTS_SELECTOR = "li.pIav2d, li[data-gs]"
+# Chaque carte de vol est un div.yg1Os ; le prix est dans div[data-gs] à l'intérieur
+_RESULTS_SELECTOR = "div.yg1Os"
 _EXTRACT_JS = r"""
 () => {
     const results = [];
-    const cards = document.querySelectorAll('li.pIav2d, li[data-gs]');
-    cards.forEach(card => {
-        const airlineEl = card.querySelector('.sSHqwe, .h1fkLb, .Ir0Voe');
-        const priceEl   = card.querySelector('.YMlIz, .FpEdX, .nA3Fge, .U3gSDe');
-        if (airlineEl && priceEl) {
-            results.push({
-                airline: airlineEl.innerText.trim(),
-                price:   priceEl.innerText.trim()
-            });
-        }
+    const seen = new Set();
+
+    document.querySelectorAll('div.yg1Os').forEach(card => {
+        const priceEl = card.querySelector('div[data-gs]');
+        if (!priceEl) return;
+
+        const price = priceEl.innerText.trim();
+        if (!price.includes('€')) return;
+
+        const cardText = card.innerText.trim();
+        const key = cardText.slice(0, 40);
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        results.push({ airline: cardText, price: price });
     });
-    // Fallback : chercher tout li contenant un prix et une compagnie connue
-    if (results.length === 0) {
-        document.querySelectorAll('li').forEach(card => {
-            const text = card.innerText;
-            if (!text.includes('€')) return;
-            const priceMatch = text.match(/(\d[\d  ]+)\s*€/);
-            const known = ['Air France', 'Air Caraïbes', 'Air caraïbes', 'Corsair'];
-            const foundAirline = known.find(a => text.toLowerCase().includes(a.toLowerCase()));
-            if (priceMatch && foundAirline) {
-                results.push({ airline: foundAirline, price: priceMatch[1].trim() + ' €' });
-            }
-        });
-    }
+
     return results;
 }
 """
@@ -52,7 +46,7 @@ class GoogleFlightsScraper:
             await page.goto(
                 "https://www.google.com/travel/flights",
                 wait_until="domcontentloaded",
-                timeout=30000,
+                timeout=45000,
             )
             await page.wait_for_timeout(2000)
         except Exception as e:
@@ -64,6 +58,12 @@ class GoogleFlightsScraper:
         except Exception as e:
             print(f"[GoogleFlights] Erreur formulaire {outbound}→{return_date}: {e}")
             await page.screenshot(path=f"debug_form_{outbound}.png")
+            return {}
+
+        # Vérifier qu'on est bien sur la page de résultats de vols
+        if "travel/flights" not in page.url:
+            print(f"[GoogleFlights] URL inattendue après recherche : {page.url}")
+            await page.screenshot(path=f"debug_url_{outbound}.png")
             return {}
 
         try:
@@ -88,7 +88,7 @@ class GoogleFlightsScraper:
                 continue
             if airline not in prices or price < prices[airline]:
                 prices[airline] = price
-            print(f"[GoogleFlights] {card['airline']!r} {card['price']!r} → {airline} {price:.0f}€")
+            print(f"[GoogleFlights] {card['airline'][:60]!r} → {airline} {price:.0f}€")
 
         return prices
 
@@ -103,7 +103,6 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.wait_for_timeout(500)
     await page.keyboard.type("Paris-Orly", delay=100)
     await page.wait_for_timeout(2000)
-    # Attendre l'option ORY directement (évite les options "Aller-retour" toujours présentes dans le DOM)
     ory = page.locator('[role="option"]', has_text="ORY")
     await ory.first.wait_for(state="visible", timeout=8000)
     await ory.first.click()
@@ -137,7 +136,7 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.press("Escape")
     await page.wait_for_timeout(1000)
 
-    # --- Date retour : fill() est plus fiable que le clavier pour ce champ ---
+    # --- Date retour : fill() contourne le calendar picker ---
     return_fr = _fmt(return_date)
     retour = page.locator('input[aria-label="Retour"]').first
     await retour.fill(return_fr)
@@ -145,17 +144,18 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.press("Escape")
     await page.wait_for_timeout(800)
 
-    # --- Lancer la recherche via Enter (évite les faux positifs sur "Rechercher des destinations") ---
+    # --- Soumettre la recherche ---
     await retour.press("Enter")
-    await page.wait_for_timeout(1000)
-    # Fallback : clic sur le bouton de recherche principal du formulaire
-    current_url = page.url
-    if "search" not in current_url and "tfs" not in current_url:
+    await page.wait_for_timeout(2000)
+
+    # Fallback si on n'est pas sur la page résultats flights
+    if "travel/flights" not in page.url:
         search_btn = page.locator('button[jsname="vLv7Lb"], button[jsname="qIrUof"]').first
         if await search_btn.count() > 0:
             await search_btn.click()
         else:
             await page.keyboard.press("Enter")
+        await page.wait_for_timeout(2000)
 
 
 def _fmt(date_iso: str) -> str:
