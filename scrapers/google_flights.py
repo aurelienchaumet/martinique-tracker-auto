@@ -97,31 +97,30 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     # --- Origine : effacer "La Rochelle" et taper "Paris-Orly" ---
     origin = page.locator('input[aria-label="De"]').first
     await origin.click()
+    await page.wait_for_timeout(1000)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
+    await page.wait_for_timeout(500)
     await page.keyboard.type("Paris-Orly", delay=100)
-    await page.wait_for_selector('[role="option"]', timeout=8000)
-    options = page.locator('[role="option"]')
-    ory = options.filter(has_text="ORY")
-    if await ory.count() > 0:
-        await ory.first.click()
-    else:
-        await options.first.click()
+    await page.wait_for_timeout(2000)
+    # Attendre l'option ORY directement (évite les options "Aller-retour" toujours présentes dans le DOM)
+    ory = page.locator('[role="option"]', has_text="ORY")
+    await ory.first.wait_for(state="visible", timeout=8000)
+    await ory.first.click()
     await page.wait_for_timeout(500)
 
     # --- Destination ---
     dest = page.locator('input[aria-label="À "]').first
     await dest.click()
+    await page.wait_for_timeout(1000)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
+    await page.wait_for_timeout(500)
     await page.keyboard.type("Fort-de-France", delay=100)
-    await page.wait_for_selector('[role="option"]', timeout=8000)
-    options = page.locator('[role="option"]')
-    fdf = options.filter(has_text="FDF")
-    if await fdf.count() > 0:
-        await fdf.first.click()
-    else:
-        await options.first.click()
+    await page.wait_for_timeout(2000)
+    fdf = page.locator('[role="option"]', has_text="FDF")
+    await fdf.first.wait_for(state="visible", timeout=8000)
+    await fdf.first.click()
     await page.wait_for_timeout(500)
 
     # --- Date aller ---
