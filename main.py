@@ -2,7 +2,7 @@ import asyncio
 from typing import List
 
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 from config import ROUTES
 from core.alert_engine import Alert, detect_alert
@@ -31,7 +31,7 @@ async def run():
     scraper = GoogleFlightsScraper()
     all_alerts: List[Alert] = []
 
-    async with async_playwright() as pw:
+    async with Stealth().use_async(async_playwright()) as pw:
         browser = await pw.chromium.launch(
             headless=True,
             args=CHROMIUM_ARGS,
@@ -42,7 +42,6 @@ async def run():
             locale="fr-FR",
         )
         page = await context.new_page()
-        await stealth_async(page)
 
         for route in ROUTES:
             outbound = route["outbound"]
