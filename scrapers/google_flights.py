@@ -1,6 +1,9 @@
 import re
 from typing import Optional
 
+import urllib.request
+import json
+
 from fast_flights import FlightData, Passengers, get_flights
 
 _AIRLINE_PATTERNS = {
@@ -9,17 +12,29 @@ _AIRLINE_PATTERNS = {
     "Corsair":      re.compile(r"corsair",             re.IGNORECASE),
 }
 
+_FALLBACK_USD_TO_EUR = 0.93
+
+
+def _get_usd_to_eur() -> float:
+    try:
+        with urllib.request.urlopen(
+            "https://open.er-api.com/v6/latest/USD", timeout=5
+        ) as resp:
+            data = json.loads(resp.read())
+            return float(data["rates"]["EUR"])
+    except Exception:
+        return _FALLBACK_USD_TO_EUR
+
 
 class GoogleFlightsScraper:
     name = "Google Flights"
 
     def get_prices(self, outbound: str, return_date: str) -> dict[str, float]:
-        """Récupère les prix aller-retour ORY→FDF via fast-flights (HTTP direct)."""
         try:
             result = get_flights(
                 flight_data=[
-                    FlightData(date=outbound,     from_airport="ORY", to_airport="FDF"),
-                    FlightData(date=return_date,  from_airport="FDF", to_airport="ORY"),
+                    FlightData(date=outbound,    from_airport="ORY", to_airport="FDF"),
+                    FlightData(date=return_date, from_airport="FDF", to_airport="ORY"),
                 ],
                 trip="round-trip",
                 seat="economy",
@@ -35,18 +50,21 @@ class GoogleFlightsScraper:
             print(f"[GoogleFlights] Aucun vol retourné pour {outbound}→{return_date}")
             return {}
 
+        usd_to_eur = _get_usd_to_eur()
+        print(f"[GoogleFlights] Taux USD→EUR : {usd_to_eur:.4f}")
+
         prices: dict[str, float] = {}
         for flight in result.flights:
             airline = _normalize_airline(flight.name or "")
             if airline is None:
                 continue
-            price_text = getattr(flight, "price", None) or ""
-            price = _parse_price(str(price_text))
+            price_text = str(getattr(flight, "price", None) or "")
+            price = _parse_price_eur(price_text, usd_to_eur)
             if price is None:
                 continue
             if airline not in prices or price < prices[airline]:
                 prices[airline] = price
-            print(f"[GoogleFlights] Vol trouvé: {flight.name!r} {price_text!r} → {airline} {price:.0f}€")
+            print(f"[GoogleFlights] {flight.name!r} {price_text!r} → {airline} {price:.0f}€")
 
         return prices
 
@@ -58,11 +76,13 @@ def _normalize_airline(text: str) -> Optional[str]:
     return None
 
 
-def _parse_price(text: str) -> Optional[float]:
+def _parse_price_eur(text: str, usd_to_eur: float) -> Optional[float]:
+    is_usd = "$" in text
     cleaned = re.sub(r"[^\d\s,.]", "", text).strip()
     cleaned = re.sub(r"(\d)\s(\d)", r"\1\2", cleaned)
     cleaned = cleaned.replace(",", ".")
     try:
-        return float(cleaned)
+        amount = float(cleaned)
     except ValueError:
         return None
+    return round(amount * usd_to_eur, 2) if is_usd else amount
