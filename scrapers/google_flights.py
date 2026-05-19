@@ -167,8 +167,16 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.press("Enter")
     await page.wait_for_timeout(600)
 
-    # Clic JS sur OK pour soumettre
+    # Clic JS sur OK pour valider les dates
     await page.evaluate("document.querySelector('button[jsname=\"McfNlf\"]').click()")
+    await page.wait_for_timeout(1000)
+
+    # Cliquer le bouton Rechercher du formulaire principal pour soumettre
+    search_btn = page.locator('button[jsname="vLv7Lb"], button[aria-label="Rechercher"]').first
+    if await search_btn.count() == 0:
+        # Fallback : chercher par texte en excluant les liens du bas de page
+        search_btn = page.get_by_role("button", name="Rechercher")
+    await search_btn.first.click()
     await page.wait_for_timeout(2000)
 
 
