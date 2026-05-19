@@ -5,18 +5,21 @@ from typing import Optional
 
 from playwright.async_api import async_playwright, Page
 
-_RESULTS_SELECTOR = "div.yg1Os"
+_RESULTS_SELECTOR = "div.CylAxb[data-gs]"
 _EXTRACT_JS = r"""
 () => {
     const results = [];
     const seen = new Set();
 
-    document.querySelectorAll('div.yg1Os').forEach(card => {
-        const priceEl = card.querySelector('div[data-gs]');
-        if (!priceEl) return;
-
+    // div.CylAxb[data-gs] = prix de vol (spécifique aux résultats, pas au calendrier)
+    document.querySelectorAll('div.CylAxb[data-gs]').forEach(priceEl => {
         const price = priceEl.innerText.trim();
         if (!price.includes('€')) return;
+
+        // Remonter jusqu'à la carte de vol (div.yg1Os)
+        const card = priceEl.closest('.yg1Os')
+                  || priceEl.parentElement?.parentElement?.parentElement;
+        if (!card) return;
 
         const cardText = card.innerText.trim();
         const key = cardText.slice(0, 40);
@@ -58,6 +61,8 @@ class GoogleFlightsScraper:
             print(f"[GoogleFlights] Erreur formulaire {outbound}→{return_date}: {e}")
             await page.screenshot(path=f"debug_form_{outbound}.png")
             return {}
+
+        print(f"[GoogleFlights] URL après formulaire : {page.url[:80]}")
 
         # Attendre la navigation vers la page de résultats
         try:
