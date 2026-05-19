@@ -1,0 +1,119 @@
+import pytest
+from unittest.mock import MagicMock, patch
+from scrapers.google_flights import (
+    GoogleFlightsScraper,
+    _parse_price,
+    _normalize_airline,
+)
+
+
+# --- Fonctions utilitaires ---
+
+def test_parse_price_integer():
+    assert _parse_price("487 €") == 487.0
+
+
+def test_parse_price_thousands_space():
+    assert _parse_price("1 234 €") == 1234.0
+
+
+def test_parse_price_decimal_comma():
+    assert _parse_price("1 234,50 €") == 1234.5
+
+
+def test_parse_price_invalid():
+    assert _parse_price("non disponible") is None
+
+
+def test_parse_price_empty():
+    assert _parse_price("") is None
+
+
+def test_normalize_air_france():
+    assert _normalize_airline("Air France") == "Air France"
+    assert _normalize_airline("AIR FRANCE") == "Air France"
+
+
+def test_normalize_air_caraibes():
+    assert _normalize_airline("Air Caraïbes") == "Air Caraïbes"
+    assert _normalize_airline("Air Caraibes") == "Air Caraïbes"
+
+
+def test_normalize_corsair():
+    assert _normalize_airline("Corsair") == "Corsair"
+    assert _normalize_airline("CORSAIR International") == "Corsair"
+
+
+def test_normalize_unknown_airline():
+    assert _normalize_airline("Transavia") is None
+    assert _normalize_airline("") is None
+
+
+# --- Scraper ---
+
+def _make_flight(name: str, price: str):
+    f = MagicMock()
+    f.name = name
+    f.price = price
+    return f
+
+
+def test_get_prices_returns_three_airlines():
+    scraper = GoogleFlightsScraper()
+    mock_result = MagicMock()
+    mock_result.flights = [
+        _make_flight("Air France", "520 €"),
+        _make_flight("Air Caraïbes", "487 €"),
+        _make_flight("Corsair", "399 €"),
+        _make_flight("Transavia", "350 €"),  # doit être filtré
+    ]
+
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
+    assert result == {"Air France": 520.0, "Air Caraïbes": 487.0, "Corsair": 399.0}
+    assert "Transavia" not in result
+
+
+def test_get_prices_keeps_minimum_per_airline():
+    scraper = GoogleFlightsScraper()
+    mock_result = MagicMock()
+    mock_result.flights = [
+        _make_flight("Air France", "550 €"),
+        _make_flight("Air France", "520 €"),
+        _make_flight("Air France", "610 €"),
+    ]
+
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
+    assert result == {"Air France": 520.0}
+
+
+def test_get_prices_returns_empty_on_api_error():
+    scraper = GoogleFlightsScraper()
+
+    with patch("scrapers.google_flights.get_flights", side_effect=Exception("API error")):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
+    assert result == {}
+
+
+def test_get_prices_returns_empty_on_empty_results():
+    scraper = GoogleFlightsScraper()
+    mock_result = MagicMock()
+    mock_result.flights = []
+
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
+    assert result == {}
+
+
+def test_get_prices_returns_empty_when_no_result():
+    scraper = GoogleFlightsScraper()
+
+    with patch("scrapers.google_flights.get_flights", return_value=None):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
+    assert result == {}
