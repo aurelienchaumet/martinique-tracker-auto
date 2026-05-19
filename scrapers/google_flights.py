@@ -41,15 +41,16 @@ class GoogleFlightsScraper:
         )
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            # Accepter la popup RGPD si présente
-            try:
+
+            # Gérer la page de consentement Google (consent.google.com)
+            if "consent.google.com" in page.url:
                 await page.click(
                     "button:has-text('Tout accepter'), button:has-text('Accept all')",
-                    timeout=5000
+                    timeout=10000
                 )
-                await page.wait_for_timeout(1000)
-            except Exception:
-                pass
+                await page.wait_for_url("**/travel/flights**", timeout=15000)
+                await page.wait_for_load_state("domcontentloaded")
+
             await page.wait_for_selector(_RESULTS_SELECTOR, timeout=30000)
             await page.wait_for_timeout(2000)
         except Exception as e:

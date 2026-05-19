@@ -27,10 +27,10 @@ async def run():
             locale="fr-FR",
             timezone_id="Europe/Paris",
         )
-        # Bypass popup RGPD Google
+        # Cookie SOCS pour bypass consentement Google (RGPD)
         await context.add_cookies([{
-            "name": "CONSENT",
-            "value": "YES+cb.20210328-17-p0.fr+FX+049",
+            "name": "SOCS",
+            "value": "CAESEwgDEgk2NzI4MDkwNjYaAmZyIAEaBgiA_LilBg",
             "domain": ".google.com",
             "path": "/",
         }])
