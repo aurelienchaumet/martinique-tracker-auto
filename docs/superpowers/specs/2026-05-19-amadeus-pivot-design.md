@@ -1,89 +1,113 @@
-# Martinique Tracker — Pivot Amadeus API
+# Martinique Tracker — Pivot Google Flights (interception réseau)
 
 **Date:** 2026-05-19
-**Contexte:** Les 3 scrapers Playwright sont cassés (Air Caraïbes : cert SSL expiré, Corsair : sélecteurs invalides, Air France : HTTP2 block). On pivote vers l'API officielle Amadeus for Developers.
+**Contexte:** Les 3 scrapers Playwright sont cassés (Air Caraïbes : cert SSL expiré, Corsair : sélecteurs invalides, Air France : HTTP2 block). Amadeus ne prend plus de nouveaux comptes. On pivote vers l'interception réseau de Google Flights via Playwright.
 
 ---
 
 ## Objectif
 
-Remplacer les scrapers Playwright par un client Amadeus qui récupère les prix ORY→FDF pour Air France (AF), Air Caraïbes (TX) et Corsair (SS), sur 4 combinaisons de dates déc 2026/jan 2027, 5 fois par jour.
+Remplacer les 3 scrapers Playwright par un unique `GoogleFlightsScraper` qui :
+1. Navigue vers Google Flights avec l'URL de recherche directe ORY→FDF
+2. Intercepte les réponses réseau JSON pour extraire les prix structurés
+3. Filtre les résultats pour Air France (AF), Air Caraïbes (TX/Air Caraïbes) et Corsair
+4. Retourne le prix minimum par compagnie
+
+Zéro inscription, zéro quota, zéro dépendance externe supplémentaire.
 
 ---
 
 ## Changements
 
-### Fichiers supprimés / retirés
-- `scrapers/air_caraibes.py` — supprimé
-- `scrapers/corsair.py` — supprimé
-- `scrapers/air_france.py` — supprimé
-- `scrapers/base.py` — supprimé
-- `scrapers/__init__.py` — supprimé
+### Fichiers supprimés
+- `scrapers/air_caraibes.py`
+- `scrapers/corsair.py`
+- `scrapers/air_france.py`
+- `scrapers/base.py`
+- `scrapers/__init__.py`
+- `tests/test_scrapers.py` — remplacé
 
 ### Nouveaux fichiers
-- `core/amadeus_client.py` — client Amadeus : auth OAuth2 + appel Flight Offers Search
+- `scrapers/google_flights.py` — scraper unique Google Flights
+- `tests/test_google_flights.py` — tests unitaires avec mocks Playwright
 
 ### Fichiers modifiés
-- `requirements.txt` — retire playwright, playwright-stealth ; ajoute `amadeus`
-- `config.py` — ajoute `AMADEUS_CLIENT_ID`, `AMADEUS_CLIENT_SECRET`
-- `main.py` — remplace la boucle scrapers par le client Amadeus
-- `.github/workflows/check_prices.yml` — nouveau cron + suppression des étapes Playwright
+- `requirements.txt` — retire `playwright-stealth` (inutile sur Google) ; `playwright` reste
+- `main.py` — remplace la boucle multi-scrapers par un appel unique par combo de dates
+- `.github/workflows/check_prices.yml` — nouveau cron (5 plages horaires)
 
 ### Fichiers inchangés
 - `core/price_store.py`
 - `core/alert_engine.py`
 - `core/notifier.py`
 - `dashboard/generator.py`
+- `config.py`
 
 ---
 
-## Architecture : `core/amadeus_client.py`
+## Architecture : `scrapers/google_flights.py`
 
 ```
-AmadeusClient
-  __init__(client_id, client_secret)
-  _authenticate() → bearer token (cache 29 min)
-  get_prices(outbound, return_date) → dict[airline_name, float]
-    GET /v2/shopping/flight-offers
-      originLocationCode=ORY
-      destinationLocationCode=FDF
-      departureDate=outbound
-      returnDate=return_date
-      adults=1
-      currencyCode=EUR
-      max=50
-    → filtrer itinéraires dont carrierCode in {AF, TX, SS}
-    → prendre le prix minimum par compagnie
-    → retourner {"Air France": 520.0, "Air Caraïbes": 487.0, ...}
+GoogleFlightsScraper
+  get_prices(page, outbound, return_date) → dict[str, float]
+    1. Enregistre un handler page.on("response", _capture)
+    2. Navigue vers l'URL Google Flights :
+       https://www.google.com/travel/flights?hl=fr&gl=fr
+       + paramètres : ORY→FDF, dates outbound/return, 1 adulte, aller-retour
+    3. Attend networkidle ou timeout 45s
+    4. Parse les réponses interceptées pour extraire les prix JSON
+    5. Fallback DOM : si interception vide, lit les éléments de prix dans la page
+    6. Retourne {"Air France": 520.0, "Air Caraïbes": 487.0, "Corsair": 399.0}
+    (compagnies absentes des résultats → absentes du dict, sans erreur)
 ```
 
-**Mapping IATA → nom affiché :**
-- `AF` → `Air France`
-- `TX` → `Air Caraïbes`
-- `SS` → `Corsair`
+**Stratégie d'interception :**
+- Écoute toutes les réponses avec `page.on("response", handler)`
+- Filtre les URLs contenant des patterns connus de l'API interne Google Flights
+- Si le JSON contient des données de prix structurées, les parse directement
+- Fallback DOM si aucune réponse utile interceptée dans les 45s
 
-**Gestion d'erreur :** si l'appel échoue (timeout, quota, 4xx/5xx), `get_prices()` retourne `{}` et log l'erreur. Le run continue sans crasher.
+**Mapping noms compagnies :**
+Google Flights affiche les noms en toutes lettres. On normalise :
+- Contient "Air France" → `"Air France"`
+- Contient "Air Caraïbes" ou "Air Cara" → `"Air Caraïbes"`
+- Contient "Corsair" → `"Corsair"`
+
+**Gestion d'erreur :**
+- Timeout ou erreur réseau → retourne `{}`, log l'erreur
+- Compagnie non trouvée dans les résultats → absente du dict (pas d'erreur)
+- Le run continue dans tous les cas
 
 ---
 
 ## Flow `main.py` mis à jour
 
 ```python
-client = AmadeusClient(AMADEUS_CLIENT_ID, AMADEUS_CLIENT_SECRET)
-for route in ROUTES:
-    prices = client.get_prices(route["outbound"], route["return"])
-    for airline, price in prices.items():
-        records = load_prices()
-        alert = detect_alert(records, airline, route["outbound"], route["return"], price)
-        if alert:
-            all_alerts.append(alert)
-        append_price(airline, route["outbound"], route["return"], price)
+scraper = GoogleFlightsScraper()
+
+async with async_playwright() as pw:
+    browser = await pw.chromium.launch(headless=True)
+    context = await browser.new_context(user_agent=UA)
+    page = await context.new_page()
+
+    for route in ROUTES:
+        prices = await scraper.get_prices(page, route["outbound"], route["return"])
+        for airline, price in prices.items():
+            records = load_prices()
+            alert = detect_alert(records, airline, route["outbound"], route["return"], price)
+            if alert:
+                all_alerts.append(alert)
+            append_price(airline, route["outbound"], route["return"], price)
+
+    await context.close()
+    await browser.close()
+
 write_dashboard(load_prices())
 if all_alerts:
     send_alert_email(all_alerts, load_prices())
 ```
 
-Pas de Playwright, pas de navigateur, pas d'async requis.
+Un seul contexte Playwright, une seule page, 4 appels séquentiels (un par combo de dates).
 
 ---
 
@@ -95,49 +119,22 @@ schedule:
 ```
 = 8h, 12h, 15h, 18h, 21h heure de Paris (UTC+2 en été).
 
-**Étapes Playwright supprimées :**
-- Install Chromium system dependencies
-- Cache Playwright browsers
-- Install Playwright Chromium browser
-
-**Nouvelle étape :** `pip install -r requirements.txt` suffit (pas de binaires).
+Étapes Playwright **conservées** (on garde Chromium). Étapes supprimées :
+- `playwright-stealth` (plus dans requirements)
 
 ---
 
-## GitHub Secrets à ajouter
+## Tests : `tests/test_google_flights.py`
 
-| Secret | Valeur |
-|--------|--------|
-| `AMADEUS_CLIENT_ID` | Client ID depuis developers.amadeus.com |
-| `AMADEUS_CLIENT_SECRET` | Client Secret depuis developers.amadeus.com |
-
-Les secrets existants (`GMAIL_USER`, `GMAIL_APP_PASSWORD`, `RECIPIENT_EMAIL`) restent inchangés.
-
----
-
-## Volume d'appels API
-
-- 4 combos de dates × 5 runs/jour = **20 appels/jour**
-- ~600 appels/mois
-- Quota Amadeus free (production) : largement suffisant
+- Parse correct d'une réponse JSON interceptée valide → retourne dict avec 3 compagnies
+- Normalisation des noms de compagnies (casse, variantes)
+- Prix minimum retenu quand plusieurs offres par compagnie
+- Retour `{}` si réponse vide
+- Retour `{}` si exception réseau
+- Fallback DOM appelé si interception ne retourne rien
 
 ---
 
-## Tests
+## Inscription / prérequis
 
-- `tests/test_amadeus_client.py` — mock `requests.post` (auth) et `requests.get` (search) :
-  - parsing correct d'une réponse Amadeus valide
-  - filtrage des compagnies hors périmètre (AF/TX/SS uniquement)
-  - prix minimum retenu quand plusieurs offres par compagnie
-  - retour `{}` si réponse vide ou erreur réseau
-  - cache du token (pas de double auth sur appels successifs)
-- `tests/test_scrapers.py` — supprimé (plus de scrapers)
-
----
-
-## Inscription Amadeus
-
-1. Créer un compte sur [developers.amadeus.com](https://developers.amadeus.com)
-2. Créer une app → récupérer `Client ID` et `Client Secret`
-3. Passer l'app en mode **Production** (formulaire simple, validation quasi-immédiate)
-4. Ajouter les deux secrets dans GitHub → Settings → Secrets → Actions
+Aucun. Playwright est déjà installé et fonctionnel dans le workflow.
