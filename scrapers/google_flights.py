@@ -40,7 +40,10 @@ class GoogleFlightsScraper:
             await page.wait_for_selector(_RESULTS_SELECTOR, timeout=30000)
             await page.wait_for_timeout(2000)
         except Exception as e:
+            title = await page.title()
+            final_url = page.url
             print(f"[GoogleFlights] Erreur chargement {outbound}→{return_date}: {e}")
+            print(f"[GoogleFlights] Page title: {title!r} | URL: {final_url[:120]}")
             return {}
 
         try:
