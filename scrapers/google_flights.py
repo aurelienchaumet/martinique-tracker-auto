@@ -127,15 +127,16 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     outbound_fr = _fmt(outbound)
     depart = page.locator('input[aria-label="Départ"]').first
     await depart.click()
+    await page.wait_for_timeout(500)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
     await page.keyboard.type(outbound_fr, delay=80)
     await page.wait_for_timeout(400)
 
-    # --- Date retour ---
+    # --- Date retour : Tab pour éviter le calendar picker qui bloque le clic ---
     return_fr = _fmt(return_date)
-    retour = page.locator('input[aria-label="Retour"]').first
-    await retour.click()
+    await page.keyboard.press("Tab")
+    await page.wait_for_timeout(500)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
     await page.keyboard.type(return_fr, delay=80)
@@ -143,7 +144,7 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
 
     # --- Fermer le calendrier puis lancer la recherche ---
     await page.keyboard.press("Escape")
-    await page.wait_for_timeout(500)
+    await page.wait_for_timeout(800)
     await page.locator('button[aria-label="Rechercher des destinations"]').click()
 
 
