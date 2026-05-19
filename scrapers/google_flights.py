@@ -102,6 +102,19 @@ class GoogleFlightsScraper:
             print(f"[GoogleFlights] Erreur extraction DOM: {e}")
             return {}
 
+        if not cards:
+            debug_js = """() => {
+                const spans = document.querySelectorAll('span[data-gs]');
+                const texts = Array.from(spans).slice(0, 5).map(s => s.innerText.trim().slice(0, 80));
+                return { count: spans.length, samples: texts, url: location.href };
+            }"""
+            try:
+                dbg = await page.evaluate(debug_js)
+                print(f"[GoogleFlights] DEBUG extraction vide: {dbg}")
+            except Exception:
+                pass
+            await page.screenshot(path=f"debug_empty_{outbound}.png", full_page=True)
+
         prices: dict[str, float] = {}
         for card in (cards or []):
             airline = _normalize_airline(card.get("airline", ""))
