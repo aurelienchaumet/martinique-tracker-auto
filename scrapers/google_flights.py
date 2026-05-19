@@ -116,6 +116,30 @@ class GoogleFlightsScraper:
 
 
 async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
+    # --- Passagers : 2 adultes + 1 enfant (9 ans) ---
+    pax_btn = page.locator('[aria-label*="passager"]').first
+    await pax_btn.click()
+    await page.wait_for_timeout(500)
+    # Ajouter 1 adulte (défaut = 1, cible = 2 → cliquer + une fois)
+    add_adult = page.locator('[aria-label="Ajouter un adulte"]')
+    if await add_adult.count() > 0:
+        await add_adult.click()
+        await page.wait_for_timeout(300)
+    # Ajouter 1 enfant (défaut = 0, cible = 1 → cliquer + une fois)
+    add_child = page.locator('[aria-label*="enfant"]').filter(has_text="+")
+    if await add_child.count() == 0:
+        add_child = page.locator('button[aria-label*="Ajouter un enfant"]')
+    if await add_child.count() > 0:
+        await add_child.first.click()
+        await page.wait_for_timeout(300)
+    # Fermer le panneau passagers
+    done_btn = page.locator('button:has-text("OK"), button:has-text("Terminé")').first
+    if await done_btn.count() > 0:
+        await done_btn.click()
+    else:
+        await page.keyboard.press("Escape")
+    await page.wait_for_timeout(500)
+
     # --- Origine ---
     origin = page.locator('input[aria-label="De"]').first
     await origin.click()
