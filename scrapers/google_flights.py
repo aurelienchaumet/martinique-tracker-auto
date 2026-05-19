@@ -1,10 +1,14 @@
 import re
+import time
 from typing import Optional
 
 import urllib.request
 import json
 
 from fast_flights import FlightData, Passengers, get_flights
+
+_MAX_RETRIES = 3
+_RETRY_DELAY = 5  # secondes
 
 _AIRLINE_PATTERNS = {
     "Air France":   re.compile(r"air\s+france",       re.IGNORECASE),
@@ -30,24 +34,30 @@ class GoogleFlightsScraper:
     name = "Google Flights"
 
     def get_prices(self, outbound: str, return_date: str) -> dict[str, float]:
-        try:
-            result = get_flights(
-                flight_data=[
-                    FlightData(date=outbound,    from_airport="ORY", to_airport="FDF"),
-                    FlightData(date=return_date, from_airport="FDF", to_airport="ORY"),
-                ],
-                trip="round-trip",
-                seat="economy",
-                passengers=Passengers(adults=2, children=1,
-                                      infants_in_seat=0, infants_on_lap=0),
-                fetch_mode="fallback",
-            )
-        except Exception as e:
-            print(f"[GoogleFlights] Erreur API {outbound}→{return_date}: {e}")
-            return {}
+        result = None
+        for attempt in range(1, _MAX_RETRIES + 1):
+            try:
+                result = get_flights(
+                    flight_data=[
+                        FlightData(date=outbound,    from_airport="ORY", to_airport="FDF"),
+                        FlightData(date=return_date, from_airport="FDF", to_airport="ORY"),
+                    ],
+                    trip="round-trip",
+                    seat="economy",
+                    passengers=Passengers(adults=2, children=1,
+                                          infants_in_seat=0, infants_on_lap=0),
+                    fetch_mode="fallback",
+                )
+                if result and result.flights:
+                    break
+                print(f"[GoogleFlights] Tentative {attempt}/{_MAX_RETRIES} — aucun vol pour {outbound}→{return_date}")
+            except Exception as e:
+                print(f"[GoogleFlights] Tentative {attempt}/{_MAX_RETRIES} — erreur: {e}")
+            if attempt < _MAX_RETRIES:
+                time.sleep(_RETRY_DELAY)
 
         if not result or not result.flights:
-            print(f"[GoogleFlights] Aucun vol retourné pour {outbound}→{return_date}")
+            print(f"[GoogleFlights] Aucun résultat après {_MAX_RETRIES} tentatives pour {outbound}→{return_date}")
             return {}
 
         usd_to_eur = _get_usd_to_eur()

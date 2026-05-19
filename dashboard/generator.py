@@ -1,6 +1,7 @@
 import html
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import List
 
@@ -104,7 +105,7 @@ def generate_dashboard(records: List[PriceRecord]) -> str:
             <p class="meta">Min historique : {min_price:.0f}€ &nbsp;|&nbsp; Max : {max_price:.0f}€</p>
         </div>"""
 
-    updated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    updated_at = datetime.now(ZoneInfo("Europe/Paris")).strftime("%d/%m/%Y %H:%M")
 
     return f"""<!DOCTYPE html>
 <html lang="fr">

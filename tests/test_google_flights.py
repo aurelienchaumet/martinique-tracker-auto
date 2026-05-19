@@ -117,7 +117,8 @@ def test_get_prices_keeps_minimum_per_airline():
 def test_get_prices_returns_empty_on_api_error():
     scraper = GoogleFlightsScraper()
 
-    with patch("scrapers.google_flights.get_flights", side_effect=Exception("API error")):
+    with patch("scrapers.google_flights.get_flights", side_effect=Exception("API error")), \
+         patch("scrapers.google_flights.time.sleep"):
         result = scraper.get_prices("2026-12-28", "2027-01-15")
 
     assert result == {}
@@ -129,7 +130,8 @@ def test_get_prices_returns_empty_on_empty_results():
     mock_result.flights = []
 
     with patch("scrapers.google_flights.get_flights", return_value=mock_result), \
-         patch("scrapers.google_flights._get_usd_to_eur", return_value=0.93):
+         patch("scrapers.google_flights._get_usd_to_eur", return_value=0.93), \
+         patch("scrapers.google_flights.time.sleep"):
         result = scraper.get_prices("2026-12-28", "2027-01-15")
 
     assert result == {}
@@ -138,7 +140,8 @@ def test_get_prices_returns_empty_on_empty_results():
 def test_get_prices_returns_empty_when_no_result():
     scraper = GoogleFlightsScraper()
 
-    with patch("scrapers.google_flights.get_flights", return_value=None):
+    with patch("scrapers.google_flights.get_flights", return_value=None), \
+         patch("scrapers.google_flights.time.sleep"):
         result = scraper.get_prices("2026-12-28", "2027-01-15")
 
     assert result == {}
