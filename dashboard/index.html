@@ -27,41 +27,70 @@
             <canvas id="chart_20261228_20270115" height="120"></canvas>
             <table>
                 <thead><tr><th>Compagnie</th><th>Prix actuel</th><th>Statut</th></tr></thead>
-                <tbody></tbody>
+                <tbody><tr><td>Air Caraïbes</td><td><b>2926€</b></td><td>🔴</td></tr><tr><td>Corsair</td><td><b>2720€</b></td><td>🟢</td></tr></tbody>
             </table>
-            <p class="meta">Min historique : 0€ &nbsp;|&nbsp; Max : 0€</p>
+            <p class="meta">Min historique : 2720€ &nbsp;|&nbsp; Max : 2926€</p>
         </div>
         <div class="card">
             <h3>✈️ 2026-12-28 → 2027-01-16</h3>
             <canvas id="chart_20261228_20270116" height="120"></canvas>
             <table>
                 <thead><tr><th>Compagnie</th><th>Prix actuel</th><th>Statut</th></tr></thead>
-                <tbody><tr><td>Air Caraïbes</td><td><b>2388€</b></td><td>🔴</td></tr><tr><td>Corsair</td><td><b>2244€</b></td><td>🟢</td></tr></tbody>
+                <tbody></tbody>
             </table>
-            <p class="meta">Min historique : 2244€ &nbsp;|&nbsp; Max : 2388€</p>
+            <p class="meta">Min historique : 0€ &nbsp;|&nbsp; Max : 0€</p>
         </div>
         <div class="card">
             <h3>✈️ 2026-12-29 → 2027-01-15</h3>
             <canvas id="chart_20261229_20270115" height="120"></canvas>
             <table>
                 <thead><tr><th>Compagnie</th><th>Prix actuel</th><th>Statut</th></tr></thead>
-                <tbody><tr><td>Air Caraïbes</td><td><b>2018€</b></td><td>🔴</td></tr><tr><td>Corsair</td><td><b>1965€</b></td><td>🟢</td></tr></tbody>
+                <tbody><tr><td>Air Caraïbes</td><td><b>2471€</b></td><td>🔴</td></tr><tr><td>Corsair</td><td><b>2402€</b></td><td>🟢</td></tr></tbody>
             </table>
-            <p class="meta">Min historique : 1965€ &nbsp;|&nbsp; Max : 2018€</p>
+            <p class="meta">Min historique : 2402€ &nbsp;|&nbsp; Max : 2471€</p>
         </div>
         <div class="card">
             <h3>✈️ 2026-12-29 → 2027-01-16</h3>
             <canvas id="chart_20261229_20270116" height="120"></canvas>
             <table>
                 <thead><tr><th>Compagnie</th><th>Prix actuel</th><th>Statut</th></tr></thead>
-                <tbody><tr><td>Air Caraïbes</td><td><b>2018€</b></td><td>🔴</td></tr><tr><td>Corsair</td><td><b>1965€</b></td><td>🟢</td></tr></tbody>
+                <tbody></tbody>
             </table>
-            <p class="meta">Min historique : 1965€ &nbsp;|&nbsp; Max : 2018€</p>
+            <p class="meta">Min historique : 0€ &nbsp;|&nbsp; Max : 0€</p>
         </div></div>
-  <p class="updated">Mis à jour le 19/05/2026 12:18</p>
+  <p class="updated">Mis à jour le 19/05/2026 12:47</p>
   <script>
         (function() {
             var ctx = document.getElementById('chart_20261228_20270115').getContext('2d');
+            var raw = [{"label": "Air Cara\u00efbes", "data": [2925.57], "labels": ["2026-05-19T12:47"], "borderColor": "#1565c0", "backgroundColor": "#1565c022", "fill": false, "tension": 0.3}, {"label": "Corsair", "data": [2720.4], "labels": ["2026-05-19T12:47"], "borderColor": "#2e7d32", "backgroundColor": "#2e7d3222", "fill": false, "tension": 0.3}];
+            var labels = ["2026-05-19T12:47"];
+            var datasets = raw.map(function(d) {
+                return {
+                    label: d.label,
+                    data: labels.map(function(l) {
+                        var i = d.labels.indexOf(l);
+                        return i >= 0 ? d.data[i] : null;
+                    }),
+                    borderColor: d.borderColor,
+                    backgroundColor: d.backgroundColor,
+                    fill: d.fill,
+                    tension: d.tension,
+                    spanGaps: true,
+                };
+            });
+            new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { title: { display: true, text: 'Prix (€)' } } }
+                }
+            });
+        })();
+
+        (function() {
+            var ctx = document.getElementById('chart_20261228_20270116').getContext('2d');
             var raw = [];
             var labels = [];
             var datasets = raw.map(function(d) {
@@ -90,38 +119,9 @@
         })();
 
         (function() {
-            var ctx = document.getElementById('chart_20261228_20270116').getContext('2d');
-            var raw = [{"label": "Air Cara\u00efbes", "data": [2388.0], "labels": ["2026-05-19T12:18"], "borderColor": "#1565c0", "backgroundColor": "#1565c022", "fill": false, "tension": 0.3}, {"label": "Corsair", "data": [2244.0], "labels": ["2026-05-19T12:18"], "borderColor": "#2e7d32", "backgroundColor": "#2e7d3222", "fill": false, "tension": 0.3}];
-            var labels = ["2026-05-19T12:18"];
-            var datasets = raw.map(function(d) {
-                return {
-                    label: d.label,
-                    data: labels.map(function(l) {
-                        var i = d.labels.indexOf(l);
-                        return i >= 0 ? d.data[i] : null;
-                    }),
-                    borderColor: d.borderColor,
-                    backgroundColor: d.backgroundColor,
-                    fill: d.fill,
-                    tension: d.tension,
-                    spanGaps: true,
-                };
-            });
-            new Chart(ctx, {
-                type: 'line',
-                data: { labels: labels, datasets: datasets },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'top' } },
-                    scales: { y: { title: { display: true, text: 'Prix (€)' } } }
-                }
-            });
-        })();
-
-        (function() {
             var ctx = document.getElementById('chart_20261229_20270115').getContext('2d');
-            var raw = [{"label": "Air Cara\u00efbes", "data": [2018.0], "labels": ["2026-05-19T12:18"], "borderColor": "#1565c0", "backgroundColor": "#1565c022", "fill": false, "tension": 0.3}, {"label": "Corsair", "data": [1965.0], "labels": ["2026-05-19T12:18"], "borderColor": "#2e7d32", "backgroundColor": "#2e7d3222", "fill": false, "tension": 0.3}];
-            var labels = ["2026-05-19T12:18"];
+            var raw = [{"label": "Air Cara\u00efbes", "data": [2471.45], "labels": ["2026-05-19T12:47"], "borderColor": "#1565c0", "backgroundColor": "#1565c022", "fill": false, "tension": 0.3}, {"label": "Corsair", "data": [2401.92], "labels": ["2026-05-19T12:47"], "borderColor": "#2e7d32", "backgroundColor": "#2e7d3222", "fill": false, "tension": 0.3}];
+            var labels = ["2026-05-19T12:47"];
             var datasets = raw.map(function(d) {
                 return {
                     label: d.label,
@@ -149,8 +149,8 @@
 
         (function() {
             var ctx = document.getElementById('chart_20261229_20270116').getContext('2d');
-            var raw = [{"label": "Air Cara\u00efbes", "data": [2018.0], "labels": ["2026-05-19T12:18"], "borderColor": "#1565c0", "backgroundColor": "#1565c022", "fill": false, "tension": 0.3}, {"label": "Corsair", "data": [1965.0], "labels": ["2026-05-19T12:18"], "borderColor": "#2e7d32", "backgroundColor": "#2e7d3222", "fill": false, "tension": 0.3}];
-            var labels = ["2026-05-19T12:18"];
+            var raw = [];
+            var labels = [];
             var datasets = raw.map(function(d) {
                 return {
                     label: d.label,
