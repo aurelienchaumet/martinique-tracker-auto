@@ -1,10 +1,9 @@
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import MagicMock, patch
 from scrapers.google_flights import (
     GoogleFlightsScraper,
     _parse_price,
     _normalize_airline,
-    _build_search_url,
 )
 
 
@@ -50,73 +49,71 @@ def test_normalize_unknown_airline():
     assert _normalize_airline("") is None
 
 
-def test_build_search_url_contains_route_and_dates():
-    url = _build_search_url("2026-12-28", "2027-01-15")
-    assert "ORY" in url
-    assert "FDF" in url
-    assert "2026-12-28" in url
-    assert "2027-01-15" in url
-
-
 # --- Scraper ---
 
-@pytest.mark.asyncio
-async def test_get_prices_returns_three_airlines():
-    scraper = GoogleFlightsScraper()
-    mock_page = AsyncMock()
-    mock_page.evaluate = AsyncMock(return_value=[
-        {"airline": "Air France", "price": "520 €"},
-        {"airline": "Air Caraïbes", "price": "487 €"},
-        {"airline": "Corsair", "price": "399 €"},
-        {"airline": "Transavia", "price": "350 €"},  # doit être filtré
-    ])
+def _make_flight(name: str, price: str):
+    f = MagicMock()
+    f.name = name
+    f.price = price
+    return f
 
-    result = await scraper.get_prices(mock_page, "2026-12-28", "2027-01-15")
+
+def test_get_prices_returns_three_airlines():
+    scraper = GoogleFlightsScraper()
+    mock_result = MagicMock()
+    mock_result.flights = [
+        _make_flight("Air France", "520 €"),
+        _make_flight("Air Caraïbes", "487 €"),
+        _make_flight("Corsair", "399 €"),
+        _make_flight("Transavia", "350 €"),  # doit être filtré
+    ]
+
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
 
     assert result == {"Air France": 520.0, "Air Caraïbes": 487.0, "Corsair": 399.0}
     assert "Transavia" not in result
 
 
-@pytest.mark.asyncio
-async def test_get_prices_keeps_minimum_per_airline():
+def test_get_prices_keeps_minimum_per_airline():
     scraper = GoogleFlightsScraper()
-    mock_page = AsyncMock()
-    mock_page.evaluate = AsyncMock(return_value=[
-        {"airline": "Air France", "price": "550 €"},
-        {"airline": "Air France", "price": "520 €"},
-        {"airline": "Air France", "price": "610 €"},
-    ])
+    mock_result = MagicMock()
+    mock_result.flights = [
+        _make_flight("Air France", "550 €"),
+        _make_flight("Air France", "520 €"),
+        _make_flight("Air France", "610 €"),
+    ]
 
-    result = await scraper.get_prices(mock_page, "2026-12-28", "2027-01-15")
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
     assert result == {"Air France": 520.0}
 
 
-@pytest.mark.asyncio
-async def test_get_prices_returns_empty_on_navigation_error():
+def test_get_prices_returns_empty_on_api_error():
     scraper = GoogleFlightsScraper()
-    mock_page = AsyncMock()
-    mock_page.goto = AsyncMock(side_effect=Exception("net::ERR_CONNECTION_REFUSED"))
 
-    result = await scraper.get_prices(mock_page, "2026-12-28", "2027-01-15")
+    with patch("scrapers.google_flights.get_flights", side_effect=Exception("API error")):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
     assert result == {}
 
 
-@pytest.mark.asyncio
-async def test_get_prices_returns_empty_on_selector_timeout():
+def test_get_prices_returns_empty_on_empty_results():
     scraper = GoogleFlightsScraper()
-    mock_page = AsyncMock()
-    mock_page.goto = AsyncMock()
-    mock_page.wait_for_selector = AsyncMock(side_effect=Exception("Timeout 30000ms exceeded"))
+    mock_result = MagicMock()
+    mock_result.flights = []
 
-    result = await scraper.get_prices(mock_page, "2026-12-28", "2027-01-15")
+    with patch("scrapers.google_flights.get_flights", return_value=mock_result):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
     assert result == {}
 
 
-@pytest.mark.asyncio
-async def test_get_prices_returns_empty_on_empty_dom():
+def test_get_prices_returns_empty_when_no_result():
     scraper = GoogleFlightsScraper()
-    mock_page = AsyncMock()
-    mock_page.evaluate = AsyncMock(return_value=[])
 
-    result = await scraper.get_prices(mock_page, "2026-12-28", "2027-01-15")
+    with patch("scrapers.google_flights.get_flights", return_value=None):
+        result = scraper.get_prices("2026-12-28", "2027-01-15")
+
     assert result == {}
