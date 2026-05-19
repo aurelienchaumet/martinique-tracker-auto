@@ -5,7 +5,6 @@ from typing import Optional
 
 from playwright.async_api import async_playwright, Page
 
-# Chaque carte de vol est un div.yg1Os ; le prix est dans div[data-gs] à l'intérieur
 _RESULTS_SELECTOR = "div.yg1Os"
 _EXTRACT_JS = r"""
 () => {
@@ -60,9 +59,14 @@ class GoogleFlightsScraper:
             await page.screenshot(path=f"debug_form_{outbound}.png")
             return {}
 
-        # Vérifier qu'on est bien sur la page de résultats de vols
-        if "travel/flights" not in page.url:
-            print(f"[GoogleFlights] URL inattendue après recherche : {page.url}")
+        # Attendre la navigation vers la page de résultats
+        try:
+            await page.wait_for_url(
+                lambda url: "travel/flights" in url and "tfs=" in url,
+                timeout=20000,
+            )
+        except Exception as e:
+            print(f"[GoogleFlights] Pas de navigation résultats {outbound}→{return_date}: {page.url}")
             await page.screenshot(path=f"debug_url_{outbound}.png")
             return {}
 
@@ -94,7 +98,7 @@ class GoogleFlightsScraper:
 
 
 async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
-    # --- Origine : effacer "La Rochelle" et taper "Paris-Orly" ---
+    # --- Origine ---
     origin = page.locator('input[aria-label="De"]').first
     await origin.click()
     await page.wait_for_timeout(1000)
@@ -120,42 +124,34 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     fdf = page.locator('[role="option"]', has_text="FDF")
     await fdf.first.wait_for(state="visible", timeout=8000)
     await fdf.first.click()
-    await page.wait_for_timeout(500)
+    await page.wait_for_timeout(1000)
 
-    # --- Date aller ---
+    # --- Calendrier : après FDF, le dialog de dates s'ouvre automatiquement ---
+    await page.wait_for_selector('[role="dialog"]', timeout=8000)
+
+    # Saisir la date aller dans l'input du dialog
     outbound_fr = _fmt(outbound)
-    depart = page.locator('input[aria-label="Départ"]').first
-    await depart.click()
-    await page.wait_for_timeout(500)
+    dialog_depart = page.locator('[role="dialog"] input[aria-label="Départ"]')
+    await dialog_depart.click()
+    await page.wait_for_timeout(300)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
     await page.keyboard.type(outbound_fr, delay=80)
-    await page.wait_for_timeout(400)
+    await page.wait_for_timeout(600)
 
-    # --- Fermer le calendrier avant de remplir Retour ---
-    await page.keyboard.press("Escape")
-    await page.wait_for_timeout(1000)
-
-    # --- Date retour : fill() contourne le calendar picker ---
+    # Saisir la date retour (Tab pour passer au champ suivant)
     return_fr = _fmt(return_date)
-    retour = page.locator('input[aria-label="Retour"]').first
-    await retour.fill(return_fr)
-    await page.wait_for_timeout(800)
-    await page.keyboard.press("Escape")
-    await page.wait_for_timeout(800)
+    await page.keyboard.press("Tab")
+    await page.wait_for_timeout(300)
+    await page.keyboard.press("Control+a")
+    await page.keyboard.press("Delete")
+    await page.keyboard.type(return_fr, delay=80)
+    await page.wait_for_timeout(600)
 
-    # --- Soumettre la recherche ---
-    await retour.press("Enter")
+    # Cliquer OK pour confirmer et lancer la recherche
+    ok_btn = page.locator('button[jsname="McfNlf"]').first
+    await ok_btn.click()
     await page.wait_for_timeout(2000)
-
-    # Fallback si on n'est pas sur la page résultats flights
-    if "travel/flights" not in page.url:
-        search_btn = page.locator('button[jsname="vLv7Lb"], button[jsname="qIrUof"]').first
-        if await search_btn.count() > 0:
-            await search_btn.click()
-        else:
-            await page.keyboard.press("Enter")
-        await page.wait_for_timeout(2000)
 
 
 def _fmt(date_iso: str) -> str:
