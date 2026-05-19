@@ -96,8 +96,7 @@ class GoogleFlightsScraper:
 async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     # --- Origine : effacer "La Rochelle" et taper "Paris-Orly" ---
     origin = page.locator('input[aria-label="De"]').first
-    await origin.click()
-    await origin.triple_click()
+    await origin.click(click_count=3)
     await page.keyboard.type("Paris-Orly", delay=80)
     # Attendre l'autocomplete et sélectionner ORY
     await page.wait_for_selector('[role="option"]', timeout=8000)
@@ -111,8 +110,7 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
 
     # --- Destination ---
     dest = page.locator('input[aria-label="À "]').first
-    await dest.click()
-    await dest.triple_click()
+    await dest.click(click_count=3)
     await page.keyboard.type("Fort-de-France", delay=80)
     await page.wait_for_selector('[role="option"]', timeout=8000)
     options = page.locator('[role="option"]')
@@ -126,16 +124,14 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     # --- Date aller ---
     outbound_fr = _fmt(outbound)
     depart = page.locator('input[aria-label="Départ"]').first
-    await depart.click()
-    await depart.triple_click()
+    await depart.click(click_count=3)
     await page.keyboard.type(outbound_fr, delay=80)
     await page.wait_for_timeout(400)
 
     # --- Date retour ---
     return_fr = _fmt(return_date)
     retour = page.locator('input[aria-label="Retour"]').first
-    await retour.click()
-    await retour.triple_click()
+    await retour.click(click_count=3)
     await page.keyboard.type(return_fr, delay=80)
     await page.wait_for_timeout(400)
 
