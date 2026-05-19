@@ -133,26 +133,29 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.type(outbound_fr, delay=80)
     await page.wait_for_timeout(400)
 
-    # --- Fermer le calendrier avant de cliquer sur Retour ---
+    # --- Fermer le calendrier avant de remplir Retour ---
     await page.keyboard.press("Escape")
-    await page.wait_for_timeout(800)
+    await page.wait_for_timeout(1000)
 
-    # --- Date retour : force=True pour passer sous le modal s'il reste présent ---
+    # --- Date retour : fill() est plus fiable que le clavier pour ce champ ---
     return_fr = _fmt(return_date)
     retour = page.locator('input[aria-label="Retour"]').first
-    await retour.click(force=True)
-    await page.wait_for_timeout(500)
-    await page.keyboard.press("Control+a")
-    await page.keyboard.press("Delete")
-    await page.keyboard.type(return_fr, delay=80)
-    await page.wait_for_timeout(400)
-
-    # --- Fermer le calendrier puis lancer la recherche ---
+    await retour.fill(return_fr)
+    await page.wait_for_timeout(800)
     await page.keyboard.press("Escape")
     await page.wait_for_timeout(800)
-    # Le bouton peut afficher "Explorer" ou "Rechercher" selon l'état du formulaire
-    search_btn = page.locator('button:has-text("Rechercher"), button:has-text("Explorer")').first
-    await search_btn.click()
+
+    # --- Lancer la recherche via Enter (évite les faux positifs sur "Rechercher des destinations") ---
+    await retour.press("Enter")
+    await page.wait_for_timeout(1000)
+    # Fallback : clic sur le bouton de recherche principal du formulaire
+    current_url = page.url
+    if "search" not in current_url and "tfs" not in current_url:
+        search_btn = page.locator('button[jsname="vLv7Lb"], button[jsname="qIrUof"]').first
+        if await search_btn.count() > 0:
+            await search_btn.click()
+        else:
+            await page.keyboard.press("Enter")
 
 
 def _fmt(date_iso: str) -> str:
