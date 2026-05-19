@@ -156,13 +156,12 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
     await page.keyboard.type(return_fr, delay=80)
+    await page.wait_for_timeout(400)
+    await page.keyboard.press("Enter")  # Confirmer la date retour
     await page.wait_for_timeout(600)
 
-    # Fermer tout popup éventuel puis cliquer OK
-    await page.keyboard.press("Escape")
-    await page.wait_for_timeout(500)
-    ok_btn = page.locator('button[jsname="McfNlf"]').first
-    await ok_btn.click(force=True)
+    # Clic JS direct sur OK (contourne les checks de visibilité Playwright)
+    await page.evaluate("document.querySelector('button[jsname=\"McfNlf\"]').click()")
     await page.wait_for_timeout(2000)
 
 
