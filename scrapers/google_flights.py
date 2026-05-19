@@ -72,6 +72,15 @@ class GoogleFlightsScraper:
             await _fill_form(page, outbound, return_date)
         except Exception as e:
             print(f"[GoogleFlights] Erreur formulaire {outbound}→{return_date}: {e}")
+            # Log tous les inputs visibles pour diagnostiquer l'aria-label réel
+            try:
+                inputs_info = await page.evaluate("""() => Array.from(
+                    document.querySelectorAll('input')
+                ).map(i => ({ label: i.getAttribute('aria-label'), ph: i.placeholder }))
+                  .filter(i => i.label || i.ph)""")
+                print(f"[GoogleFlights] Inputs disponibles: {inputs_info[:10]}")
+            except Exception:
+                pass
             await page.screenshot(path=f"debug_form_{outbound}.png")
             return {}
 
@@ -154,7 +163,10 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.wait_for_timeout(500)
 
     # --- Origine ---
-    origin = page.locator('input[aria-label="De"]').first
+    origin = page.locator(
+        'input[aria-label="De"], input[placeholder="De"], '
+        'input[aria-label*="départ" i], input[aria-label*="origine" i]'
+    ).first
     await origin.click()
     await page.wait_for_timeout(1000)
     await page.keyboard.press("Control+a")
@@ -169,7 +181,10 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
 
     # --- Destination ---
     # Après FDF, la page auto-navigue vers travel/flights?tfs=... (ORY+FDF, sans dates)
-    dest = page.locator('input[aria-label="À "]').first
+    dest = page.locator(
+        'input[aria-label="À "], input[placeholder="À"], '
+        'input[aria-label*="destination" i], input[aria-label*="arrivée" i]'
+    ).first
     await dest.click()
     await page.wait_for_timeout(1000)
     await page.keyboard.press("Control+a")
