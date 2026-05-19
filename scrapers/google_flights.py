@@ -5,24 +5,37 @@ from typing import Optional
 
 from playwright.async_api import async_playwright, Page
 
-_RESULTS_SELECTOR = "div.CylAxb[data-gs]"
+_RESULTS_SELECTOR = "span[data-gs]"
 _EXTRACT_JS = r"""
 () => {
     const results = [];
     const seen = new Set();
 
-    // div.CylAxb[data-gs] = prix de vol (spécifique aux résultats, pas au calendrier)
-    document.querySelectorAll('div.CylAxb[data-gs]').forEach(priceEl => {
+    // Sur /flights/search : prix dans span[data-gs]
+    document.querySelectorAll('span[data-gs]').forEach(priceEl => {
+        const rect = priceEl.getBoundingClientRect();
+        if (rect.width === 0) return;
+
         const price = priceEl.innerText.trim();
         if (!price.includes('€')) return;
 
-        // Remonter jusqu'à la carte de vol (div.yg1Os)
-        const card = priceEl.closest('.yg1Os')
-                  || priceEl.parentElement?.parentElement?.parentElement;
+        // Remonter jusqu'à la carte de vol (chercher un ancêtre avec du texte complet)
+        let card = null;
+        let el = priceEl;
+        for (let i = 0; i < 10; i++) {
+            el = el.parentElement;
+            if (!el) break;
+            const t = el.innerText || '';
+            if ((t.includes('Air France') || t.includes('Air Caraïbes') || t.includes('air caraïbes') || t.includes('Corsair'))
+                && t.includes('€')) {
+                card = el;
+                break;
+            }
+        }
         if (!card) return;
 
         const cardText = card.innerText.trim();
-        const key = cardText.slice(0, 40);
+        const key = cardText.slice(0, 50);
         if (seen.has(key)) return;
         seen.add(key);
 
