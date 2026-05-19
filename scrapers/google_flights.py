@@ -62,9 +62,7 @@ class GoogleFlightsScraper:
             await page.screenshot(path=f"debug_form_{outbound}.png")
             return {}
 
-        print(f"[GoogleFlights] URL après formulaire : {page.url[:80]}")
-
-        # Attendre la navigation vers la page de résultats
+        # Attendre la navigation vers la page résultats avec les dates
         try:
             await page.wait_for_url(
                 lambda url: "travel/flights" in url and "tfs=" in url,
@@ -74,6 +72,8 @@ class GoogleFlightsScraper:
             print(f"[GoogleFlights] Pas de navigation résultats {outbound}→{return_date}: {page.url}")
             await page.screenshot(path=f"debug_url_{outbound}.png")
             return {}
+
+        print(f"[GoogleFlights] URL finale : {page.url[:120]}")
 
         try:
             await page.wait_for_selector(_RESULTS_SELECTOR, timeout=40000)
@@ -118,6 +118,7 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.wait_for_timeout(500)
 
     # --- Destination ---
+    # Après FDF, la page auto-navigue vers travel/flights?tfs=... (ORY+FDF, sans dates)
     dest = page.locator('input[aria-label="À "]').first
     await dest.click()
     await page.wait_for_timeout(1000)
@@ -129,18 +130,25 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     fdf = page.locator('[role="option"]', has_text="FDF")
     await fdf.first.wait_for(state="visible", timeout=8000)
     await fdf.first.click()
-    await page.wait_for_timeout(1000)
 
-    # --- Calendrier : s'ouvre automatiquement après FDF, sinon cliquer Départ ---
-    # :has() cible uniquement le dialog qui contient l'input Départ (pas les autres dialogs)
+    # Attendre l'auto-navigation vers la page résultats ORY+FDF
+    await page.wait_for_url(
+        lambda url: "travel/flights" in url and "tfs=" in url,
+        timeout=12000,
+    )
+    await page.wait_for_timeout(2000)
+
+    # --- Mettre à jour les dates sur la page de résultats (contexte ORY+FDF correct) ---
+    outbound_fr = _fmt(outbound)
+    return_fr = _fmt(return_date)
     dialog_selector = '[role="dialog"][aria-modal="true"]:has(input[aria-label="Départ"])'
-    if not await page.locator(dialog_selector).is_visible():
-        await page.locator('input[aria-label="Départ"]').first.click()
-        await page.wait_for_timeout(500)
+
+    # Clic sur Départ pour ouvrir le calendrier (maintenant en contexte ORY+FDF)
+    await page.locator('input[aria-label="Départ"]').first.click()
+    await page.wait_for_timeout(800)
     await page.wait_for_selector(dialog_selector, timeout=8000)
 
-    # Saisir la date aller dans l'input du dialog
-    outbound_fr = _fmt(outbound)
+    # Saisir date aller dans le dialog
     dialog_depart = page.locator(f'{dialog_selector} input[aria-label="Départ"]')
     await dialog_depart.click()
     await page.wait_for_timeout(300)
@@ -149,18 +157,17 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.type(outbound_fr, delay=80)
     await page.wait_for_timeout(600)
 
-    # Saisir la date retour (Tab pour passer au champ suivant)
-    return_fr = _fmt(return_date)
+    # Saisir date retour
     await page.keyboard.press("Tab")
     await page.wait_for_timeout(300)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
     await page.keyboard.type(return_fr, delay=80)
     await page.wait_for_timeout(400)
-    await page.keyboard.press("Enter")  # Confirmer la date retour
+    await page.keyboard.press("Enter")
     await page.wait_for_timeout(600)
 
-    # Clic JS direct sur OK (contourne les checks de visibilité Playwright)
+    # Clic JS sur OK pour soumettre
     await page.evaluate("document.querySelector('button[jsname=\"McfNlf\"]').click()")
     await page.wait_for_timeout(2000)
 
