@@ -97,6 +97,13 @@ class GoogleFlightsScraper:
             await page.screenshot(path=f"debug_url_{outbound}.png")
             return {}
 
+        # Forcer la devise EUR (les IPs datacenter reçoivent $US par défaut)
+        result_url = page.url
+        if "curr=" not in result_url:
+            sep = "&" if "?" in result_url else "?"
+            await page.goto(result_url + sep + "curr=EUR", wait_until="domcontentloaded", timeout=45000)
+            await page.wait_for_timeout(2000)
+
         print(f"[GoogleFlights] URL finale : {page.url[:120]}")
 
         try:
