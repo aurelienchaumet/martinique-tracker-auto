@@ -133,9 +133,14 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.keyboard.type(outbound_fr, delay=80)
     await page.wait_for_timeout(400)
 
-    # --- Date retour : Tab pour éviter le calendar picker qui bloque le clic ---
+    # --- Fermer le calendrier avant de cliquer sur Retour ---
+    await page.keyboard.press("Escape")
+    await page.wait_for_timeout(800)
+
+    # --- Date retour : force=True pour passer sous le modal s'il reste présent ---
     return_fr = _fmt(return_date)
-    await page.keyboard.press("Tab")
+    retour = page.locator('input[aria-label="Retour"]').first
+    await retour.click(force=True)
     await page.wait_for_timeout(500)
     await page.keyboard.press("Control+a")
     await page.keyboard.press("Delete")
@@ -145,7 +150,9 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     # --- Fermer le calendrier puis lancer la recherche ---
     await page.keyboard.press("Escape")
     await page.wait_for_timeout(800)
-    await page.locator('button[aria-label="Rechercher des destinations"]').click()
+    # Le bouton peut afficher "Explorer" ou "Rechercher" selon l'état du formulaire
+    search_btn = page.locator('button:has-text("Rechercher"), button:has-text("Explorer")').first
+    await search_btn.click()
 
 
 def _fmt(date_iso: str) -> str:
