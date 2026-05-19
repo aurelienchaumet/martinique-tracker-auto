@@ -127,9 +127,9 @@ async def _fill_form(page: Page, outbound: str, return_date: str) -> None:
     await page.wait_for_timeout(1000)
 
     # --- Calendrier : s'ouvre automatiquement après FDF, sinon cliquer Départ ---
-    # Le vrai dialog de dates a aria-modal="true" (pas les nav panels masqués)
-    dialog_selector = '[role="dialog"][aria-modal="true"]'
-    if not await page.locator(dialog_selector).first.is_visible():
+    # :has() cible uniquement le dialog qui contient l'input Départ (pas les autres dialogs)
+    dialog_selector = '[role="dialog"][aria-modal="true"]:has(input[aria-label="Départ"])'
+    if not await page.locator(dialog_selector).is_visible():
         await page.locator('input[aria-label="Départ"]').first.click()
         await page.wait_for_timeout(500)
     await page.wait_for_selector(dialog_selector, timeout=8000)
