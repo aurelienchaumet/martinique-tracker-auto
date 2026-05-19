@@ -1,80 +1,76 @@
+import asyncio
 import re
-import time
 from typing import Optional
 
-import urllib.request
-import json
+from playwright.async_api import async_playwright, Page
 
-from fast_flights import FlightData, Passengers, get_flights
-
-_MAX_RETRIES = 3
-_RETRY_DELAY = 5  # secondes
+_RESULTS_SELECTOR = "li.pIav2d, li[data-gs]"
+_EXTRACT_JS = """
+() => {
+    const results = [];
+    const cards = document.querySelectorAll('li.pIav2d, li[data-gs]');
+    cards.forEach(card => {
+        const airlineEl = card.querySelector('.sSHqwe, .h1fkLb, .Ir0Voe');
+        const priceEl   = card.querySelector('.YMlIz, .FpEdX, .nA3Fge');
+        if (airlineEl && priceEl) {
+            results.push({
+                airline: airlineEl.innerText.trim(),
+                price:   priceEl.innerText.trim()
+            });
+        }
+    });
+    return results;
+}
+"""
 
 _AIRLINE_PATTERNS = {
-    "Air France":   re.compile(r"air\s+france",       re.IGNORECASE),
-    "Air Caraïbes": re.compile(r"air\s+cara[ïi]bes",  re.IGNORECASE),
-    "Corsair":      re.compile(r"corsair",             re.IGNORECASE),
+    "Air France":   re.compile(r"air\s+france",      re.IGNORECASE),
+    "Air Caraïbes": re.compile(r"air\s+cara[ïi]bes", re.IGNORECASE),
+    "Corsair":      re.compile(r"corsair",            re.IGNORECASE),
 }
-
-_FALLBACK_USD_TO_EUR = 0.93
-
-
-def _get_usd_to_eur() -> float:
-    try:
-        with urllib.request.urlopen(
-            "https://open.er-api.com/v6/latest/USD", timeout=5
-        ) as resp:
-            data = json.loads(resp.read())
-            return float(data["rates"]["EUR"])
-    except Exception:
-        return _FALLBACK_USD_TO_EUR
 
 
 class GoogleFlightsScraper:
     name = "Google Flights"
 
-    def get_prices(self, outbound: str, return_date: str) -> dict[str, float]:
-        result = None
-        for attempt in range(1, _MAX_RETRIES + 1):
+    async def get_prices(self, page: Page, outbound: str, return_date: str) -> dict[str, float]:
+        url = (
+            "https://www.google.com/travel/flights"
+            f"#flt=ORY.FDF.{outbound}*FDF.ORY.{return_date}"
+            ";c:EUR;e:1;sd:1;t:f"
+        )
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            # Accepter la popup RGPD si présente
             try:
-                result = get_flights(
-                    flight_data=[
-                        FlightData(date=outbound,    from_airport="ORY", to_airport="FDF"),
-                        FlightData(date=return_date, from_airport="FDF", to_airport="ORY"),
-                    ],
-                    trip="round-trip",
-                    seat="economy",
-                    passengers=Passengers(adults=2, children=1,
-                                          infants_in_seat=0, infants_on_lap=0),
-                    fetch_mode="fallback",
+                await page.click(
+                    "button:has-text('Tout accepter'), button:has-text('Accept all')",
+                    timeout=5000
                 )
-                if result and result.flights:
-                    break
-                print(f"[GoogleFlights] Tentative {attempt}/{_MAX_RETRIES} — aucun vol pour {outbound}→{return_date}")
-            except Exception as e:
-                print(f"[GoogleFlights] Tentative {attempt}/{_MAX_RETRIES} — erreur: {e}")
-            if attempt < _MAX_RETRIES:
-                time.sleep(_RETRY_DELAY)
-
-        if not result or not result.flights:
-            print(f"[GoogleFlights] Aucun résultat après {_MAX_RETRIES} tentatives pour {outbound}→{return_date}")
+                await page.wait_for_timeout(1000)
+            except Exception:
+                pass
+            await page.wait_for_selector(_RESULTS_SELECTOR, timeout=30000)
+            await page.wait_for_timeout(2000)
+        except Exception as e:
+            print(f"[GoogleFlights] Erreur chargement {outbound}→{return_date}: {e}")
             return {}
 
-        usd_to_eur = _get_usd_to_eur()
-        print(f"[GoogleFlights] Taux USD→EUR : {usd_to_eur:.4f}")
+        try:
+            cards = await page.evaluate(_EXTRACT_JS)
+        except Exception as e:
+            print(f"[GoogleFlights] Erreur extraction DOM: {e}")
+            return {}
 
         prices: dict[str, float] = {}
-        for flight in result.flights:
-            airline = _normalize_airline(flight.name or "")
-            if airline is None:
-                continue
-            price_text = str(getattr(flight, "price", None) or "")
-            price = _parse_price_eur(price_text, usd_to_eur)
-            if price is None:
+        for card in (cards or []):
+            airline = _normalize_airline(card.get("airline", ""))
+            price   = _parse_price(card.get("price", ""))
+            if airline is None or price is None:
                 continue
             if airline not in prices or price < prices[airline]:
                 prices[airline] = price
-            print(f"[GoogleFlights] {flight.name!r} {price_text!r} → {airline} {price:.0f}€")
+            print(f"[GoogleFlights] {card['airline']!r} {card['price']!r} → {airline} {price:.0f}€")
 
         return prices
 
@@ -86,13 +82,11 @@ def _normalize_airline(text: str) -> Optional[str]:
     return None
 
 
-def _parse_price_eur(text: str, usd_to_eur: float) -> Optional[float]:
-    is_usd = "$" in text
+def _parse_price(text: str) -> Optional[float]:
     cleaned = re.sub(r"[^\d\s,.]", "", text).strip()
     cleaned = re.sub(r"(\d)\s(\d)", r"\1\2", cleaned)
     cleaned = cleaned.replace(",", ".")
     try:
-        amount = float(cleaned)
+        return float(cleaned)
     except ValueError:
         return None
-    return round(amount * usd_to_eur, 2) if is_usd else amount
