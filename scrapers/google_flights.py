@@ -17,7 +17,8 @@ _EXTRACT_JS = r"""
         if (rect.width === 0) return;
 
         const price = priceEl.innerText.trim();
-        if (!price.includes('€')) return;
+        const hasCurrency = price.includes('€') || price.includes('$') || price.includes('£');
+        if (!hasCurrency) return;
 
         // Remonter jusqu'à la carte de vol (chercher un ancêtre avec du texte complet)
         let card = null;
@@ -26,8 +27,9 @@ _EXTRACT_JS = r"""
             el = el.parentElement;
             if (!el) break;
             const t = el.innerText || '';
+            const hasPrice = t.includes('€') || t.includes('$') || t.includes('£');
             if ((t.includes('Air France') || t.includes('Air Caraïbes') || t.includes('air caraïbes') || t.includes('Corsair'))
-                && t.includes('€')) {
+                && hasPrice) {
                 card = el;
                 break;
             }
