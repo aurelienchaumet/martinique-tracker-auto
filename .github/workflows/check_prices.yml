@@ -11,6 +11,8 @@ concurrency:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   check:
@@ -54,3 +56,15 @@ jobs:
           git add data/prices.json dashboard/index.html
           git diff --staged --quiet || git commit -m "chore: update prices $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
