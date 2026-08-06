@@ -19806,5 +19806,69 @@
     "return_date": "2027-01-16",
     "price": 2387.0,
     "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:18:08.103706",
+    "airline": "Air Caraïbes",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-15",
+    "price": 2440.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:18:08.143833",
+    "airline": "Corsair",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-15",
+    "price": 2475.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:18:38.344397",
+    "airline": "Air Caraïbes",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-16",
+    "price": 2475.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:18:38.383223",
+    "airline": "Corsair",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-16",
+    "price": 2475.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:19:08.431286",
+    "airline": "Air Caraïbes",
+    "outbound": "2026-12-29",
+    "return_date": "2027-01-15",
+    "price": 2387.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:19:08.471275",
+    "airline": "Corsair",
+    "outbound": "2026-12-29",
+    "return_date": "2027-01-15",
+    "price": 2387.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:19:38.658022",
+    "airline": "Air Caraïbes",
+    "outbound": "2026-12-29",
+    "return_date": "2027-01-16",
+    "price": 2387.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-08-06T08:19:38.696730",
+    "airline": "Corsair",
+    "outbound": "2026-12-29",
+    "return_date": "2027-01-16",
+    "price": 2387.0,
+    "currency": "EUR"
   }
 ]
