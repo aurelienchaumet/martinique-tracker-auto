@@ -40062,5 +40062,21 @@
     "return_date": "2027-01-16",
     "price": 2939.0,
     "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-11-18T14:52:37.893381",
+    "airline": "Air Caraïbes",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-16",
+    "price": 2530.0,
+    "currency": "EUR"
+  },
+  {
+    "timestamp": "2026-11-18T14:52:37.979177",
+    "airline": "Corsair",
+    "outbound": "2026-12-28",
+    "return_date": "2027-01-16",
+    "price": 3019.0,
+    "currency": "EUR"
   }
 ]
